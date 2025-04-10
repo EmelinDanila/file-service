@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context" // Добавьте этот импорт
 	"io"
 	"log"
 	"net"
@@ -91,13 +92,13 @@ func (s *server) DownloadFile(req *pb.FileRequest, stream pb.FileService_Downloa
 	}
 }
 
-func (s *server) ListFiles(_ *pb.ListRequest, stream pb.FileService_ListFilesServer) error {
+func (s *server) ListFiles(ctx context.Context, _ *pb.ListRequest) (*pb.ListResponse, error) {
 	s.listSem <- struct{}{}        // acquire semaphore
 	defer func() { <-s.listSem }() // release semaphore
 
 	files, err := os.ReadDir(s.storagePath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	resp := &pb.ListResponse{}
@@ -108,12 +109,12 @@ func (s *server) ListFiles(_ *pb.ListRequest, stream pb.FileService_ListFilesSer
 		}
 		resp.Files = append(resp.Files, &pb.FileInfo{
 			Filename:  file.Name(),
-			CreatedAt: info.ModTime().Unix(), // Using ModTime as created_at
+			CreatedAt: info.ModTime().Unix(),
 			UpdatedAt: info.ModTime().Unix(),
 		})
 	}
 
-	return stream.Send(resp)
+	return resp, nil
 }
 
 func main() {
